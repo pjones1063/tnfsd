@@ -1,4 +1,17 @@
-# TNFS - The Trivial Network Filesystem
+# TNFS - The Trivial Network Filesystem - With Python Stats
+
+## Usage Statistics
+This fork includes a built-in usage logger.
+- **Data:** All mounts and file opens are logged to `tnfsd_stats.csv` in the server directory.
+- **Format:** `Timestamp, IP_Address, Filename`
+- **Dashboard:** A Python script (`gen_stats.py`) is included to generate a visual HTML report of server activity.
+
+**To run the dashboard:**
+1. Run the server: `./tnfsd /path/to/files`
+2. Generate stats: `python3 gen_stats.py`
+3. Serve web page: `python3 -m http.server 8080`
+
+4. 
 
 ## Rationale
 
