@@ -29,6 +29,10 @@ TNFS daemon datagram handler
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <time.h>
+#include <arpa/inet.h>
+
 
 #ifdef UNIX
 #include <sys/socket.h>
@@ -49,8 +53,77 @@ TNFS daemon datagram handler
 #include "directory.h"
 #include "tnfs_file.h"
 
+/* Linux/Pi fix for Windows constant */
+#define SOCKET_ERROR -1
+
 int sockfd;		 /* UDP global socket file descriptor */
 int tcplistenfd; /* TCP listening socket file descriptor */
+
+/* -------------------------------------------------------------------------- */
+/* LOGGING FUNCTIONS START                                                    */
+/* -------------------------------------------------------------------------- */
+
+/* Helper to log MOUNTS (Images/ATRs) to CSV */
+void log_mount_csv(struct sockaddr_in *cliaddr, unsigned char *payload, int datasz) {
+    FILE *fp;
+    time_t now;
+    char time_str[64];
+    char *ip_str;
+    char *mount_path;
+
+    // Safety check
+    if (datasz < 2) return;
+
+    // Payload structure: [Version (2 bytes)] [Path String...]
+    mount_path = (char*)(payload + 2);
+
+    // Make the logs prettier: 
+    // If path is empty or just "/", call it [ROOT DIRECTORY]
+    if (mount_path[0] == '\0' || (mount_path[0] == '/' && mount_path[1] == '\0')) {
+        mount_path = "[ROOT DIRECTORY]";
+    }
+
+    time(&now);
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    
+    // Convert IP to string
+    ip_str = inet_ntoa(cliaddr->sin_addr);
+
+    fp = fopen("tnfsd_stats.csv", "a");
+    if (fp) {
+        fprintf(fp, "%s,%s,%s\n", time_str, ip_str, mount_path);
+        fclose(fp);
+    }
+}
+
+/* Helper to log OPENS (XEX/COM/EXE) to CSV */
+void log_file_open_csv(struct sockaddr_in *cliaddr, unsigned char *payload) {
+    FILE *fp;
+    time_t now;
+    char time_str[64];
+    char *ip_str;
+    char *filename;
+
+    // TNFS_OPEN Payload: [Flags (2 bytes)] [Mode (2 bytes)] [Filename String...]
+    // The filename starts at offset 4
+    filename = (char*)(payload + 4);
+
+    time(&now);
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    ip_str = inet_ntoa(cliaddr->sin_addr);
+
+    fp = fopen("tnfsd_stats.csv", "a");
+    if (fp) {
+        // Tag with [OPEN] to distinguish from mounts
+        fprintf(fp, "%s,%s,[OPEN] %s\n", time_str, ip_str, filename);
+        fclose(fp);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* LOGGING FUNCTIONS END                                                      */
+/* -------------------------------------------------------------------------- */
+
 
 tnfs_cmdfunc dircmd[NUM_DIRCMDS] =
 	{&tnfs_opendir, &tnfs_readdir, &tnfs_closedir,
@@ -192,6 +265,11 @@ void tnfs_mainloop()
 			{
 				die("select() failed\n");
 			}
+            
+            /* Fixed: Use defined constant or -1 for Linux */
+			if (readyfds == SOCKET_ERROR) {
+			    // Handle error if needed, or continue
+			}
 
 			/* handle fds ready for reading */
 			/* UDP message? */
@@ -329,6 +407,9 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 	}
 	else
 	{
+        /* LOGGING HOOK #1: MOUNT (Disk Images) */
+		log_mount_csv(cliaddr, databuf, datasz);
+		
 		tnfs_mount(&hdr, databuf, datasz);
 		return;
 	}
@@ -363,6 +444,13 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 			tnfs_badcommand(&hdr, sess);
 		break;
 	case CLASS_FILE:
+        /* LOGGING HOOK #2: FILE OPEN (Executables) */
+        /* Command index 9 is TNFS_OPEN */
+        if (cmdidx == 9) 
+        {
+            log_file_open_csv(cliaddr, databuf);
+        }
+
 		if (cmdidx < NUM_FILECMDS)
 			(*filecmd[cmdidx])(&hdr, sess, databuf, datasz);
 		else
@@ -426,3 +514,4 @@ void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr)
 			   "Retransmit was truncated");
 	}
 }
+
