@@ -11,7 +11,6 @@ This fork includes a built-in usage logger.
 2. Generate stats: `python3 gen_stats.py`
 3. Serve web page: `python3 -m http.server 8080`
 
-4. 
 
 ## Rationale
 
