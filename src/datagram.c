@@ -29,18 +29,21 @@ TNFS daemon datagram handler
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <stdio.h>
+#include <signal.h>
 #include <time.h>
-#include <arpa/inet.h>
-
+#include <arpa/inet.h> /* Added for inet_ntoa */
 
 #ifdef UNIX
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/select.h>
+#ifndef SOCKET_ERROR
+#define SOCKET_ERROR -1
+#endif
 #endif
 
 #ifdef WIN32
+#include <winsock2.h>
 #include <windows.h>
 #endif
 
@@ -53,11 +56,9 @@ TNFS daemon datagram handler
 #include "directory.h"
 #include "tnfs_file.h"
 
-/* Linux/Pi fix for Windows constant */
-#define SOCKET_ERROR -1
-
 int sockfd;		 /* UDP global socket file descriptor */
 int tcplistenfd; /* TCP listening socket file descriptor */
+
 
 /* -------------------------------------------------------------------------- */
 /* LOGGING FUNCTIONS START                                                    */
@@ -220,6 +221,14 @@ void tnfs_sockinit(int port)
 	{
 		die("Unable to create TCP socket");
 	}
+	int reuseaddr = 1;
+	if (setsockopt(tcplistenfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuseaddr, sizeof(reuseaddr)) < 0)
+	{
+		die("setsockopt(SO_REUSEADDR) failed");
+	}
+#ifndef WIN32
+	signal(SIGPIPE, SIG_IGN);
+#endif
 
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
@@ -238,7 +247,10 @@ void tnfs_mainloop()
 	int readyfds, i;
 	fd_set fdset;
 	fd_set errfdset;
-	int tcpsocks[MAX_TCP_CONN];
+	TcpConnection tcpsocks[MAX_TCP_CONN];
+	struct timeval select_timeout;
+	time_t last_stats_report = 0;
+	time_t now = 0;
 
 	memset(&tcpsocks, 0, sizeof(tcpsocks));
 
@@ -252,78 +264,108 @@ void tnfs_mainloop()
 
 		for (i = 0; i < MAX_TCP_CONN; i++)
 		{
-			if (tcpsocks[i])
+			if (tcpsocks[i].cli_fd)
 			{
-				FD_SET(tcpsocks[i], &fdset);
+				FD_SET(tcpsocks[i].cli_fd, &fdset);
 			}
 		}
 
 		FD_COPY(&fdset, &errfdset);
-		if ((readyfds = select(FD_SETSIZE, &fdset, NULL, &errfdset, NULL)) != 0)
-		{
-			if (readyfds < 0)
-			{
-				die("select() failed\n");
-			}
-            
-            /* Fixed: Use defined constant or -1 for Linux */
-			if (readyfds == SOCKET_ERROR) {
-			    // Handle error if needed, or continue
-			}
+		select_timeout.tv_sec = 1;
 
-			/* handle fds ready for reading */
-			/* UDP message? */
-			if (FD_ISSET(sockfd, &fdset))
+		readyfds = select(FD_SETSIZE, &fdset, NULL, &errfdset, &select_timeout);
+		if (readyfds == SOCKET_ERROR) {
+			LOG("tnfs_mainloop: select failed\n");
+			break;
+		}
+
+		if (readyfds == 0) {
+			// Just a normal timeout, reloop
+			continue;
+		}
+
+		/* UDP message? */
+		if (FD_ISSET(sockfd, &fdset))
+		{
+			tnfs_handle_udpmsg();
+		}
+
+		/* Incoming TCP connection? */
+		if (FD_ISSET(tcplistenfd, &fdset))
+		{
+			tcp_accept(&tcpsocks[0]);
+		}
+
+		// was the fdset relevant to any of the existing connections?
+		for (i = 0; i < MAX_TCP_CONN; i++)
+		{
+			if (tcpsocks[i].cli_fd)
 			{
-				tnfs_handle_udpmsg();
-			}
-			/* Incoming TCP connection? */
-			else if (FD_ISSET(tcplistenfd, &fdset))
-			{
-				tcp_accept(&tcpsocks[0]);
-			}
-			else
-			{
-				for (i = 0; i < MAX_TCP_CONN; i++)
+				if (FD_ISSET(tcpsocks[i].cli_fd, &fdset))
 				{
-					if (tcpsocks[i])
-					{
-						if (FD_ISSET(tcpsocks[i], &fdset))
-						{
-							tnfs_handle_tcpmsg(tcpsocks[i]);
-						}
-					}
+					tnfs_handle_tcpmsg(&tcpsocks[i]);
 				}
 			}
+		}
+
+		time(&now);
+		if (STATS_INTERVAL > 0 && now - last_stats_report > STATS_INTERVAL)
+		{
+			stats_report(tcpsocks);
+			last_stats_report = now;
 		}
 	}
 }
 
-void tcp_accept(int *socklist)
+void tcp_accept(TcpConnection *tcp_conn_list)
 {
 	int acc_fd, i;
-	struct sockaddr_in cli_addr;
-	socklen_t cli_len = sizeof(cli_addr);
-	int *fdptr;
+	struct sockaddr_in cliaddr;
 
-	acc_fd = accept(tcplistenfd, (struct sockaddr *)&cli_addr, &cli_len);
+#ifdef WIN32
+	int cli_len = sizeof(cliaddr);
+#else
+	socklen_t cli_len = sizeof(cliaddr);
+#endif
+
+	TcpConnection *tcp_conn;
+	LOG("tcp_accept - accepting connection\n");
+
+ 	acc_fd = accept(tcplistenfd, (struct sockaddr *)&cliaddr, &cli_len);
+
 	if (acc_fd < 1)
 	{
-		fprintf(stderr, "WARNING: unable to accept TCP connection\n");
+		fprintf(stderr, "WARNING: unable to accept TCP connection: %s\n", strerror(errno));
 		return;
 	}
 
-	fdptr = socklist;
+	tcp_conn = tcp_conn_list;
 	for (i = 0; i < MAX_TCP_CONN; i++)
 	{
-		if (*fdptr == 0)
+		if (tcp_conn->cli_fd == 0)
 		{
-			*fdptr = acc_fd;
+			MSGLOG(cliaddr.sin_addr.s_addr, "New TCP connection at index %d.", i);
+			tcp_conn->cli_fd = acc_fd;
+			tcp_conn->cliaddr = cliaddr;
 			return;
 		}
+		tcp_conn++;
 	}
 
+	MSGLOG(cliaddr.sin_addr.s_addr, "Can't accept client; too many connections.");
+
 	/* tell the client 'too many connections' */
+	unsigned char txbuf[9];
+	uint16tnfs(txbuf, 0); // connID
+	*(txbuf + 2) = 0; 	  // retry
+	*(txbuf + 3) = 0;	  // command
+	*(txbuf + 4) = 0xFF;  // error
+	*(txbuf + 5) = PROTOVERSION_LSB;
+	*(txbuf + 6) = PROTOVERSION_MSB;
+
+	send(acc_fd, (const char *)txbuf, sizeof(txbuf), 0);
+	close(acc_fd);
+
 }
 
 void tnfs_handle_udpmsg()
@@ -340,7 +382,7 @@ void tnfs_handle_udpmsg()
 	if (rxbytes >= TNFS_HEADERSZ)
 	{
 		/* probably a valid TNFS packet, decode it */
-		tnfs_decode(&cliaddr, rxbytes, rxbuf);
+		tnfs_decode(&cliaddr, 0, rxbytes, rxbuf);
 	}
 	else
 	{
@@ -351,19 +393,40 @@ void tnfs_handle_udpmsg()
 	*(rxbuf + rxbytes) = 0;
 }
 
-void tnfs_handle_tcpmsg(int cli_fd)
+void tnfs_handle_tcpmsg(TcpConnection *tcp_conn)
 {
-	char buf[255];
+	unsigned char buf[MAXMSGSZ];
 	int sz;
 
-	sz = read(cli_fd, buf, sizeof(buf));
-#ifdef DEBUG
-  printf("DEBUG: rx of tcpmsg: %d bytes: %s\n", sz, buf);
+	sz = recv(tcp_conn->cli_fd, (char *)buf, sizeof(buf), 0);
+
+#ifdef WIN32
+	if (sz == SOCKET_ERROR) {
+		LOG("WSAGetLastError() = %d\n", WSAGetLastError());
+	}
+#else
+	if (sz == -1) {
+		LOG("Error: %s\n", strerror(errno));
+	}
 #endif
 
+	if (sz <= 0) {
+		MSGLOG(tcp_conn->cliaddr.sin_addr.s_addr, "Client disconnected, closing socket.");
+		tnfs_reset_cli_fd_in_sessions(tcp_conn->cli_fd);
+
+#ifdef WIN32
+		closesocket(tcp_conn->cli_fd);
+#else
+		close(tcp_conn->cli_fd);
+#endif
+
+		tcp_conn->cli_fd = 0;
+		return;
+	}
+	tnfs_decode(&tcp_conn->cliaddr, tcp_conn->cli_fd, sz, buf);
 }
 
-void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
+void tnfs_decode(struct sockaddr_in *cliaddr, int cli_fd, int rxbytes, unsigned char *rxbuf)
 {
 	Header hdr;
 	Session *sess;
@@ -381,6 +444,7 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 	hdr.cmd = *(rxbuf + 3);
 	hdr.ipaddr = cliaddr->sin_addr.s_addr;
 	hdr.port = ntohs(cliaddr->sin_port);
+	hdr.cli_fd = cli_fd;
 
 #ifdef DEBUG
 	TNFSMSGLOG(&hdr, "REQUEST cmd=0x%02x %s", hdr.cmd, get_cmd_name(hdr.cmd));
@@ -394,7 +458,7 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 		sess = tnfs_findsession_sid(hdr.sid, &sindex);
 		if (sess == NULL)
 		{
-			TNFSMSGLOG(&hdr, "Invalid session ID");
+			tnfs_invalidsession(&hdr);
 			return;
 		}
 		if (sess->ipaddr != hdr.ipaddr)
@@ -402,14 +466,20 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 			TNFSMSGLOG(&hdr, "Session and IP do not match");
 			return;
 		}
+		if (sess->cli_fd != 0 && sess->cli_fd != cli_fd)
+		{
+			TNFSMSGLOG(&hdr, "Session is assigned to another TCP connection");
+			return;
+		}
 		/* Update session timestamp */
 		sess->last_contact = time(NULL);
+		sess->cli_fd = cli_fd;
 	}
 	else
 	{
         /* LOGGING HOOK #1: MOUNT (Disk Images) */
 		log_mount_csv(cliaddr, databuf, datasz);
-		
+
 		tnfs_mount(&hdr, databuf, datasz);
 		return;
 	}
@@ -417,7 +487,7 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 	/* client is asking for a resend */
 	if (hdr.seqno == sess->lastseqno)
 	{
-		tnfs_resend(sess, cliaddr);
+		tnfs_resend(sess, cliaddr, cli_fd);
 		return;
 	}
 
@@ -461,6 +531,13 @@ void tnfs_decode(struct sockaddr_in *cliaddr, int rxbytes, unsigned char *rxbuf)
 	}
 }
 
+void tnfs_invalidsession(Header *hdr)
+{
+	TNFSMSGLOG(hdr, "Invalid session ID");
+	hdr->status = TNFS_EBADSESSION;
+	tnfs_send(NULL, hdr, NULL, 0);
+}
+
 void tnfs_badcommand(Header *hdr, Session *sess)
 {
 	TNFSMSGLOG(hdr, "Bad command");
@@ -472,7 +549,8 @@ void tnfs_send(Session *sess, Header *hdr, unsigned char *msg, int msgsz)
 {
 	struct sockaddr_in cliaddr;
 	ssize_t txbytes;
-	unsigned char *txbuf = sess->lastmsg;
+	unsigned char txbuf_nosess[5];
+	unsigned char *txbuf = sess ? sess->lastmsg : txbuf_nosess;
 
 	// TNFS_HEADERSZ + statuscode + msg
 	if (TNFS_HEADERSZ + 1 + msgsz > MAXMSGSZ)
@@ -484,18 +562,28 @@ void tnfs_send(Session *sess, Header *hdr, unsigned char *msg, int msgsz)
 	cliaddr.sin_addr.s_addr = hdr->ipaddr;
 	cliaddr.sin_port = htons(hdr->port);
 
-	uint16tnfs(txbuf, hdr->sid);
+	uint16tnfs(txbuf, sess ? hdr->sid : 0);
 	*(txbuf + 2) = hdr->seqno;
 	*(txbuf + 3) = hdr->cmd;
 	*(txbuf + 4) = hdr->status;
 	if (msg)
 		memcpy(txbuf + 5, msg, msgsz);
 
-	sess->lastmsgsz = TNFS_HEADERSZ + 1 + msgsz; /* header + status code + payload */
-	sess->lastseqno = hdr->seqno;
+	if (sess)
+	{
+		sess->lastmsgsz = TNFS_HEADERSZ + 1 + msgsz; /* header + status code + payload */
+		sess->lastseqno = hdr->seqno;
+	}
 
-	txbytes = sendto(sockfd, WIN32_CHAR_P txbuf, msgsz + TNFS_HEADERSZ + 1, 0,
-					 (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+	if (hdr->cli_fd == 0)
+	{
+		txbytes = sendto(sockfd, WIN32_CHAR_P txbuf, msgsz + TNFS_HEADERSZ + 1, 0,
+						 (struct sockaddr *)&cliaddr, sizeof(cliaddr));
+	}
+	else
+	{
+		txbytes = send(hdr->cli_fd, WIN32_CHAR_P txbuf, msgsz + TNFS_HEADERSZ + 1, 0); 
+	}
 
 	if (txbytes < TNFS_HEADERSZ + 1 + msgsz)
 	{
@@ -503,11 +591,18 @@ void tnfs_send(Session *sess, Header *hdr, unsigned char *msg, int msgsz)
 	}
 }
 
-void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr)
+void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr, int cli_fd)
 {
 	int txbytes;
-	txbytes = sendto(sockfd, WIN32_CHAR_P sess->lastmsg, sess->lastmsgsz, 0,
-					 (struct sockaddr *)cliaddr, sizeof(struct sockaddr_in));
+	if (cli_fd == 0)
+	{
+		txbytes = sendto(sockfd, WIN32_CHAR_P sess->lastmsg, sess->lastmsgsz, 0,
+						(struct sockaddr *)cliaddr, sizeof(struct sockaddr_in));
+	}
+	else
+	{
+		txbytes = send(cli_fd, WIN32_CHAR_P sess->lastmsg, sess->lastmsgsz, 0); 
+	}
 	if (txbytes < sess->lastmsgsz)
 	{
 		MSGLOG(cliaddr->sin_addr.s_addr,

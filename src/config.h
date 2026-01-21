@@ -26,9 +26,9 @@
 #define MAXMSGSZ	532	/* maximum size of a TNFS message */
 #define MAX_FD_PER_CONN	16	/* maximum open file descriptors per client */
 #define MAX_DHND_PER_CONN 8	/* max open directories per client */
-#define MAX_CLIENTS	4096	/* maximum number of UDP clients */
-#define MAX_CLIENTS_PER_IP 4096 /* maximum number of UDP clients from single IP */
-#define MAX_TCP_CONN	256	/* Maximum number of TCP clients */
+#define MAX_SESSIONS        4096   /* maximum number of opened sessions */
+#define MAX_SESSIONS_PER_IP 4096   /* maximum number of sessions from a single IP */
+#define MAX_TCP_CONN        1022   /* maximum number of TCP connections */
 #define SESSION_TIMEOUT 21600 /* Sessions are thrown out after no contact for this many seconds. 0 = no timeout */
 #define TNFS_HEADERSZ	4	/* minimum header size */
 #define TNFS_MAX_PAYLOAD (MAXMSGSZ - TNFS_HEADERSZ - 1) /* Maximum usuable payload in a UDP datagram (-1 for status byte) */
@@ -41,6 +41,6 @@
 #define TIMEOUT_MSB	0x03	/* Timeout MSB (1 sec) */
 #define MAX_FILENAME_LEN 256	/* longest filename supported */
 #define MAX_IOSZ	512	/* maximum size of an IO operation */
-
+#define STATS_INTERVAL 60   /* how often the server stats should be logged. 0 to disable stats logging. */
 
 #endif

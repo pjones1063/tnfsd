@@ -30,6 +30,7 @@
 #ifdef UNIX
 #include <arpa/inet.h>
 #include <sys/select.h>
+#include <netinet/in.h>
 #endif
 
 #ifdef WIN32
@@ -45,18 +46,19 @@
 #define FD_COPY(f, t)   memcpy(t, f, sizeof(*(f)))
 #endif
 
+#include "stats.h"
 #include "tnfs.h"
 
 /* Handle the socket interface */
 void tnfs_sockinit(int port);
 void tnfs_mainloop();
 void tnfs_handle_udpmsg();
-void tcp_accept(int *fdlist);
-void tnfs_handle_tcpmsg(int cli_fd);
-void tnfs_decode(struct sockaddr_in *cliaddr, 
-		int rxbytes, unsigned char *rxbuf);
+void tcp_accept(TcpConnection *tcp_conn_list);
+void tnfs_handle_tcpmsg(TcpConnection *tcp_conn);
+void tnfs_decode(struct sockaddr_in *cliaddr, int cli_fd,
+	int rxbytes, unsigned char *rxbuf);
+void tnfs_invalidsession(Header *hdr);
 void tnfs_badcommand(Header *hdr, Session *sess);
 void tnfs_send(Session *sess, Header *hdr, unsigned char *msg, int msgsz);
-void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr);
-
+void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr, int cli_fd);
 #endif

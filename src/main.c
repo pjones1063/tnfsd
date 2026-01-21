@@ -34,8 +34,6 @@
 #include "errortable.h"
 #include "chroot.h"
 #include "log.h"
- 
-
 
 /* declare the main() - it won't be used elsewhere so I'll not bother
  * with putting it in a .h file */
@@ -44,10 +42,12 @@ int main(int argc, char **argv);
 int main(int argc, char **argv)
 {
     int opt;
+#ifdef ENABLE_CHROOT
     char *uvalue = NULL;
     char *gvalue = NULL;
+#endif
     char *pvalue = NULL;
-    
+
     if(argc >= 2)
     {
         #ifdef ENABLE_CHROOT
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
                     LOG("option needs a value\n");
                     break;
                 case '?':
-                    LOG("unknown option: %c\n", optopt); 
+                    LOG("unknown option: %c\n", optopt);
                     break;
             }
         }
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     #endif
     exit(-1);
     }
-    
+
     #ifdef ENABLE_CHROOT
     if (uvalue || gvalue)
     {
@@ -118,13 +118,13 @@ int main(int argc, char **argv)
 		LOG("Invalid root directory\n");
 		exit(-1);
 	}
-    
+
     #ifdef ENABLE_CHROOT
     warn_if_root();
     #endif
-    
+
     int port = TNFSD_PORT;
-    
+
     if (pvalue)
     {
         port = atoi(pvalue);
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
         }
     }
 
-	const char *version = "20.1115.2";
+	const char *version = "24.0522.1";
 
 	LOG("Starting tnfsd version %s on port %d using root directory \"%s\"\n", version, port, argv[optind]);
 

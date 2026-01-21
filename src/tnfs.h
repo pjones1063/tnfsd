@@ -46,7 +46,7 @@
 #endif
 
 #ifndef socklen_t
-#define socklen_t int32_t
+#define socklen_t uint32_t
 #endif
 
 #include "config.h"
@@ -136,7 +136,7 @@ typedef struct _session
 #endif
 	int lastmsgsz;			/* last message's size inc. hdr */
 	uint8_t lastseqno;		/* last sequence number */
-	uint8_t isTCP;			/* uses the TCP transport */
+	int cli_fd;				/* FD for the TCP connection */
 } Session;
 
 typedef struct _header
@@ -147,10 +147,17 @@ typedef struct _header
 	uint8_t status;			/* command's status */
 	in_addr_t ipaddr;		/* client address */
 	uint16_t port;			/* client port address */
+	int cli_fd;				/* FD for the TCP connection */
 } Header;
 
 typedef	void(*tnfs_cmdfunc)(Header *hdr, Session *sess,
 				unsigned char *buf, int bufsz);
+
+typedef struct _tcp_conn
+{
+	struct sockaddr_in cliaddr;  /* client address */
+	int cli_fd;					 /* FD for the TCP connection */
+} TcpConnection;
 
 #endif
 

@@ -36,5 +36,6 @@ void TNFSMSGLOG(Header *hdr, const char *msg, ...);
 void USGLOG(Header *hdr, const char *msg, ...);
 void MSGLOG(in_addr_t ipaddr, const char *msg, ...);
 void LOG(const char *msg, ...);
+void log_time();
 
 #endif

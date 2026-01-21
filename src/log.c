@@ -35,12 +35,15 @@
 
 void die(const char *msg)
 {
+	log_time();
 	fprintf(stderr, "%s\n", msg);
 	exit(-1);
 }
 
 void TNFSMSGLOG(Header *hdr, const char *msg, ...)
 {
+	log_time();
+
 	unsigned char *ip = (unsigned char *)&hdr->ipaddr;
 	char buff[128];
 
@@ -59,6 +62,8 @@ void TNFSMSGLOG(Header *hdr, const char *msg, ...)
 
 void USGLOG(Header *hdr, const char *msg, ...)
 {
+	log_time();
+
 	unsigned char *ip = (unsigned char *)&hdr->ipaddr;
 	char buff[128];
 	char sdate[20];
@@ -84,6 +89,8 @@ void USGLOG(Header *hdr, const char *msg, ...)
 
 void MSGLOG(in_addr_t ipaddr, const char *msg, ...)
 {
+	log_time();
+
 	unsigned char *ip = (unsigned char *)&ipaddr;
 	char buff[128];
 
@@ -102,6 +109,8 @@ void MSGLOG(in_addr_t ipaddr, const char *msg, ...)
 
 void LOG(const char *msg, ...)
 {
+	log_time();
+
 	va_list vargs;
 	va_start(vargs, msg);
 
@@ -111,4 +120,25 @@ void LOG(const char *msg, ...)
 #ifdef WIN32
 	fflush(stderr);
 #endif
+}
+
+void log_time() {
+    time_t now;
+    struct tm *gmt;
+
+    time(&now);
+    gmt = gmtime(&now);
+    if (gmt == NULL) {
+        fprintf(stderr, "Failed to convert time to GMT.\n");
+        return;
+    }
+
+    char formatted_time[sizeof "2011-10-08T07:07:09Z"];
+    // Replace %F and %T with equivalents for broader compatibility (wasn't working in MinGW)
+    if (strftime(formatted_time, sizeof formatted_time, "%Y-%m-%dT%H:%M:%SZ", gmt) == 0) {
+        fprintf(stderr, "[??] ");
+        return;
+    }
+
+    fprintf(stderr, "[%s] ", formatted_time);
 }

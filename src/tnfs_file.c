@@ -424,7 +424,8 @@ int validate_fd(Header *hdr, Session *s, unsigned char *buf, int bufsz,
 				int propersize)
 {
 	if (bufsz < propersize ||
-		*buf > MAX_FD_PER_CONN)
+		*buf > MAX_FD_PER_CONN ||
+		s->fd[*buf] == 0)
 	{
 #ifdef DEBUG
 		fprintf(stderr, "BAD FD: bufsz=%d propersize=%d fd=%d max=%d",
