@@ -1,0 +1,47 @@
+# ----------------------------------------------------------------------------
+# Qt Creator & CMake User Files
+# ----------------------------------------------------------------------------
+CMakeLists.txt.user
+CMakeLists.txt.user.*
+*.pro.user
+*.pro.user.*
+
+# ----------------------------------------------------------------------------
+# Build Directories & CMake Artifacts
+# ----------------------------------------------------------------------------
+build/
+build-*/
+*-build-*/
+out/
+bin/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+CPackConfig.cmake
+CPackSourceConfig.cmake
+_CPack_Packages/
+
+# ----------------------------------------------------------------------------
+# TNFS App Generated Files
+# ----------------------------------------------------------------------------
+tnfsd_stats.csv
+
+# ----------------------------------------------------------------------------
+# Eclipse IDE (Since your project is in eclipse-workspace)
+# ----------------------------------------------------------------------------
+.metadata/
+.settings/
+.project
+.cproject
+
+# ----------------------------------------------------------------------------
+# OS Generated Files
+# ----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+
