@@ -11,6 +11,8 @@ This fork modernizes the classic TNFS daemon by wrapping it in a lightweight, cr
 - **Settings UI:** Configure your root mount directory and stats output path without editing text files.
 - **Safe Port Management:** Built-in network socket checking ensures the app fails gracefully with a UI warning if port 16384 is already in use.
 
+> **Note for Windows Users:** Windows 11 often hides new system tray icons by default. If you launch the app and don't see the TNFS badge, click the small up-arrow (`^`) on the far right of your taskbar to "Show hidden icons". You can click and drag the TNFS icon from that popup menu directly onto the main taskbar so it always stays visible!
+
 ## Usage Statistics
 This fork includes a built-in usage logger.
 - **Data:** All mounts and file opens are logged to `tnfsd_stats.csv` in the server directory.
