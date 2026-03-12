@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
     // Add a little loading text at the bottom
     splash->showMessage("", Qt::AlignBottom | Qt::AlignCenter, Qt::white);
     splash->show();
+    splash->raise();
+    splash->activateWindow();
 
     // Force Qt to draw the splash screen immediately before doing anything else
     app.processEvents();

@@ -137,6 +137,24 @@ int tnfs_mount(Header *hdr, unsigned char *buf, int bufsz)
 		hdr->status = 0;
 		hdr->sid = s->sid;
 		tnfs_send(s, hdr, repbuf, 4);
+
+        /* --- MOVED CSV LOGGING HERE --- */
+        FILE *fp = fopen("tnfsd_stats.csv", "a");
+        if (fp) {
+            time_t now = time(NULL);
+            char time_str[64];
+            strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+            struct in_addr ip_addr;
+            ip_addr.s_addr = hdr->ipaddr;
+            char *ip_str = inet_ntoa(ip_addr);
+
+            // Log the actual root directory being mounted
+            fprintf(fp, "%s,%s,[MOUNT] %s\n", time_str, ip_str, s->root);
+            fclose(fp);
+        }
+        /* ------------------------------ */
+
 #ifdef DEBUG
 		TNFSMSGLOG(hdr, "Mounted %s OK, SID=%x", s->root, s->sid);
 #endif

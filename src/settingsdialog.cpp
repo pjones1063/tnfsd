@@ -123,7 +123,7 @@ void SettingsDialog::browseStatsPath()
 void SettingsDialog::generateStats()
 {
     // Pass the currently selected stats directory to the window
-    StatsWindow *statsWin = new StatsWindow(statsPathEdit->text(), this);
+    StatsWindow *statsWin = new StatsWindow(statsPathEdit->text(), nullptr);
     statsWin->setAttribute(Qt::WA_DeleteOnClose);
     statsWin->show();
 }

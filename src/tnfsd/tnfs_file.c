@@ -95,6 +95,30 @@ void tnfs_open(Header *hdr, Session *s, unsigned char *buf, int bufsz)
 		return;
 	}
 
+    /* --- MOVED CSV LOGGING HERE --- */
+    // Only log if it's not a common "keep-alive" or metadata check
+    if (strstr(fnbuf, "keep-alive") == NULL) {
+        FILE *fp = fopen("tnfsd_stats.csv", "a");
+        if (fp) {
+            time_t now = time(NULL);
+            char time_str[64];
+            strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+            struct in_addr ip_addr;
+            ip_addr.s_addr = hdr->ipaddr;
+            char *ip_str = inet_ntoa(ip_addr);
+
+            // Log the full resolved path (fnbuf)
+            fprintf(fp, "%s,%s,[OPEN] %s\n", time_str, ip_str, fnbuf);
+            fclose(fp);
+        }
+    }
+
+    LOG("OPEN SUCCESS: %s\n", fnbuf);
+
+    /* ------------------------------ */
+
+
 	for (i = 0; i < MAX_FD_PER_CONN; i++)
 	{
 		if (s->fd[i] == 0)
