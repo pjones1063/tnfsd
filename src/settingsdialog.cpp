@@ -81,11 +81,21 @@ void SettingsDialog::saveSettings()
     accept(); // Closes dialog returning QDialog::Accepted
 }
 
+
 void SettingsDialog::browseMountPath()
 {
+    // 1. Declare the options variable first
+    QFileDialog::Options options = QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks;
+
+    // 2. Add the Mac flag if we are on Apple Silicon/Intel
+#ifdef Q_OS_MACOS
+    options |= QFileDialog::DontUseNativeDialog;
+#endif
+
+    // 3. Pass the options variable into the dialog
     QString dir = QFileDialog::getExistingDirectory(this, tr("Select Root Mount Directory"),
                                                     mountPathEdit->text(),
-                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+                                                    options);
     if (!dir.isEmpty()) {
         mountPathEdit->setText(dir);
     }
@@ -93,9 +103,18 @@ void SettingsDialog::browseMountPath()
 
 void SettingsDialog::browseStatsPath()
 {
+    // 1. Declare the options variable first
+    QFileDialog::Options options = QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks;
+
+    // 2. Add the Mac flag if we are on Apple Silicon/Intel
+#ifdef Q_OS_MACOS
+    options |= QFileDialog::DontUseNativeDialog;
+#endif
+
+    // 3. Pass the options variable into the dialog
     QString dir = QFileDialog::getExistingDirectory(this, tr("Select Stats Output Directory"),
                                                     statsPathEdit->text(),
-                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+                                                    options);
     if (!dir.isEmpty()) {
         statsPathEdit->setText(dir);
     }

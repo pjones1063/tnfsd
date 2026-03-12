@@ -10,6 +10,8 @@
 #include <QSet>
 #include <QMap>
 #include <algorithm>
+#include <QTimer>
+
 
 StatsWindow::StatsWindow(QString statsFolderPath, QWidget *parent)
     : QDialog(parent), basePath(statsFolderPath)
@@ -66,13 +68,16 @@ QString StatsWindow::getCountry(const QString &ip)
         return ipCache.value(ip).toString();
     }
 
-    // Rate limiting for the free API (100ms)
-    QThread::msleep(100);
+    // --- THE FIX: Non-blocking rate limit for the free API (100ms) ---
+    QEventLoop pauseLoop;
+    QTimer::singleShot(100, &pauseLoop, &QEventLoop::quit);
+    pauseLoop.exec();
+    // -----------------------------------------------------------------
 
     QNetworkRequest request((QUrl("http://ip-api.com/json/" + ip + "?fields=country")));
     QNetworkReply *reply = netManager->get(request);
 
-    // Synchronously wait for the reply (acceptable for this specific background admin tool)
+    // Synchronously wait for the reply (The UI will stay alive here too!)
     QEventLoop loop;
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     loop.exec();
@@ -86,6 +91,7 @@ QString StatsWindow::getCountry(const QString &ip)
     reply->deleteLater();
     return country;
 }
+
 
 void StatsWindow::generateReport()
 {

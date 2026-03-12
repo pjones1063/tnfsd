@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     QSplashScreen *splash = new QSplashScreen(splashImage, Qt::WindowStaysOnTopHint);
 
     // Add a little loading text at the bottom
-    splash->showMessage("Initializing TNFS-2k26...", Qt::AlignBottom | Qt::AlignCenter, Qt::white);
+    splash->showMessage("", Qt::AlignBottom | Qt::AlignCenter, Qt::white);
     splash->show();
 
     // Force Qt to draw the splash screen immediately before doing anything else
