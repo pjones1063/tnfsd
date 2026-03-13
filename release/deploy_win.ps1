@@ -6,7 +6,7 @@ $WinTemp    = "$ReleaseDir\win-temp"
 
 $CompilerPath = "C:/Qt/Tools/mingw1310_64/bin"
 $QtBinPath    = "C:/Qt/6.10.2/mingw_64/bin"
-$ISCC         = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+$ISCC         = "C:\Program Files (x86)\Inno\ISCC.exe"
 $Msys2Path    = "C:\Qt\msys2"
 
 # 2. Hard Clean
@@ -45,6 +45,10 @@ Compress-Archive -Path "$WinTemp\*" -DestinationPath "$ReleaseDir\$AppName-Porta
 if (Test-Path $ISCC) {
     Write-Host "Compiling Inno Setup Installer..." -ForegroundColor Cyan
     & $ISCC "TnfsTrayApp-Installer.iss"
+    Write-Host "Installer created successfully in $ReleaseDir!" -ForegroundColor Green
+} else {
+    Write-Host "SKIPPED: Inno Setup 6 not found at $ISCC" -ForegroundColor Yellow
+    Write-Host "Download from https://jrsoftware.org/isdl.php to generate the Setup.exe" -ForegroundColor Yellow
 }
 
 Write-Host "Deployment Complete!" -ForegroundColor Green

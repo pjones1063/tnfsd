@@ -18,6 +18,10 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 file(GLOB GUI_SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h")
 file(GLOB TNFS_SOURCES CONFIGURE_DEPENDS "src/tnfsd/*.c" "src/tnfsd/*.h")
 
+if(WIN32)
+    set(WINDOWS_ICON_RES "res/windows.rc")
+endif()
+
 # 2. Add Executable FIRST (Now includes the Mac Icon)
 add_executable(TnfsTrayApp ${GUI_SOURCES} ${TNFS_SOURCES} res/resources.qrc ${MACOS_ICON})
 
@@ -34,6 +38,7 @@ target_link_libraries(TnfsTrayApp PRIVATE Qt6::Widgets Qt6::Network)
 
 if(WIN32)
     target_compile_definitions(TnfsTrayApp PRIVATE WIN32 NEED_ERRTABLE NEED_BSDCOMPAT)
+    target_link_libraries(TnfsTrayApp PRIVATE ws2_32)
 elseif(APPLE)
     target_compile_definitions(TnfsTrayApp PRIVATE UNIX NEED_ERRTABLE)
 else()

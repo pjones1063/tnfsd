@@ -22,6 +22,11 @@ Copyright (c) 2010 Dylan Smith
 #endif
 
 #ifdef WIN32
+/* Increase the default 64 socket limit on Windows before loading winsock2.
+   This prevents dropped connections under heavy client loads. */
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 256
+#endif
 #include <winsock2.h>
 #include <windows.h>
 #endif
@@ -280,4 +285,9 @@ void tnfs_shutdown_sockets() {
 #endif
         tcplistenfd = 0;
     }
+}
+
+/* Gracefully stops the main loop from an external thread */
+void stop_tnfs_server() {
+    g_tnfs_running = 0;
 }

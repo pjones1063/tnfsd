@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h> // Added for time()
 
 #include "datagram.h"
 #include "session.h"
@@ -55,6 +56,9 @@ int start_tnfs_server(const char *root_dir, int port)
     const char *version = "24.0522.1 (Qt GUI Edition)";
 
     LOG("Starting tnfsd version %s on port %d using root directory \"%s\"\n", version, port, root_dir);
+
+    /* Seed the PRNG so Windows generates unique Session IDs */
+    srand((unsigned int)time(NULL));
 
     tnfs_init();          /* initialize structures etc. */
     tnfs_init_errtable(); /* initialize error lookup table */

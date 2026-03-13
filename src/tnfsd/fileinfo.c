@@ -14,7 +14,6 @@ int get_fileinfo(const char *path, fileinfo_t *fileinf)
     if(path == NULL || fileinf == NULL)
         return EINVAL;
 
-
     fileinf->flags = 0;
     fileinf->size = 0;
     fileinf->c_time = 0;
@@ -31,8 +30,8 @@ int get_fileinfo(const char *path, fileinfo_t *fileinf)
         namestart = path;
 
 #ifdef WIN32
-    WIN32_FILE_ATTRIBUTE_DATA fdata;    
-    if(true == GetFileAttributesEx(path, GetFileExInfoStandard, &fdata))
+    WIN32_FILE_ATTRIBUTE_DATA fdata;
+    if(GetFileAttributesExA(path, GetFileExInfoStandard, &fdata) != 0)
     {
         // NOTE: We're only going to return the 32bits worth of data, which means very large files will have the wrong size reported
         if(fdata.nFileSizeHigh > 0 || fdata.nFileSizeLow > 0xFFFFFFFF)
@@ -40,7 +39,7 @@ int get_fileinfo(const char *path, fileinfo_t *fileinf)
         else
             fileinf->size = fdata.nFileSizeLow;
 
-        // Convert time values from FILETIME to time_t
+// Convert time values from FILETIME to time_t
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
         uint64_t wtime = ((uint64_t)fdata.ftLastWriteTime.dwHighDateTime << 32) + fdata.ftLastWriteTime.dwLowDateTime;
@@ -66,7 +65,8 @@ int get_fileinfo(const char *path, fileinfo_t *fileinf)
     }
     else
     {
-        return GetLastError();
+        /* Return standard POSIX errno instead of Win32 GetLastError() */
+        return ENOENT;
     }
 
 #else

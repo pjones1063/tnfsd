@@ -64,5 +64,6 @@ void tnfs_invalidsession(Header *hdr);
 void tnfs_badcommand(Header *hdr, Session *sess);
 void tnfs_send(Session *sess, Header *hdr, unsigned char *msg, int msgsz);
 void tnfs_resend(Session *sess, struct sockaddr_in *cliaddr, int cli_fd);
+void stop_tnfs_server();
 
 #endif

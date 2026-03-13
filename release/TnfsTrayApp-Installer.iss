@@ -2,7 +2,7 @@
 AppName=TnfsTrayApp
 AppVersion=1.0.0
 DefaultDirName={autopf}\TnfsTrayApp
-OutputDir=.
+OutputDir=..\release
 OutputBaseFilename=TnfsTrayApp-Setup
 
 [Files]
