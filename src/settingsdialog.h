@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QCheckBox>
 
 class SettingsDialog : public QDialog
 {
@@ -27,6 +28,7 @@ private:
 
     QLineEdit *mountPathEdit;
     QLineEdit *statsPathEdit;
+    QCheckBox *startup;
 
     QPushButton *browseMountBtn;
     QPushButton *browseStatsBtn;

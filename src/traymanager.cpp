@@ -3,7 +3,8 @@
 #include "aboutdialog.h"
 #include "logwindow.h"
 #include "statswindow.h"
-#include <QCoreApplication>
+//#include <QCoreApplication>
+#include <QApplication>
 #include <QDebug>
 #include <QIcon>
 #include <QDir>
@@ -11,6 +12,7 @@
 #include <QTcpServer>
 #include <QUdpSocket>
 #include <QMessageBox>
+#include <QCursor>
 
 
 TrayManager::TrayManager(QObject *parent) : QObject(parent),
@@ -22,6 +24,12 @@ TrayManager::TrayManager(QObject *parent) : QObject(parent),
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setIcon(QIcon(":/tnfs_badge.png"));
     trayIcon->show();
+
+    QSettings settings("TNFS_Project", "TrayApp");
+    if (settings.value("autoStart", false).toBool()) {
+        qDebug() << "Auto-start enabled, launching server...";
+        startServer();
+    }
 }
 
 TrayManager::~TrayManager()
@@ -74,6 +82,14 @@ void TrayManager::createTrayIcon()
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setToolTip(tr("TNFS Daemon - Stopped"));
+
+    connect(trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger) {
+            // Left-click detected; manually pop the menu at the cursor's location
+            trayIconMenu->popup(QCursor::pos());
+        }
+    });
+
 }
 
 void TrayManager::startServer()
@@ -160,7 +176,8 @@ void TrayManager::quitApp()
         workerThread->wait(1000);
     }
 
-    QCoreApplication::quit();
+    // QCoreApplication::quit();
+    QApplication::quit();
 }
 
 void TrayManager::showAbout()

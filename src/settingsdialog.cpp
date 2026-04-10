@@ -25,6 +25,8 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
 
     generateStatsBtn = new QPushButton(tr("Generate HTML Stats Now"), this);
 
+    startup = new QCheckBox(tr("Auto-start server on application launch"), this);
+
     saveBtn = new QPushButton(tr("Save"), this);
     cancelBtn = new QPushButton(tr("Cancel"), this);
 
@@ -49,7 +51,7 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
     mainLayout->addLayout(mountLayout);
     mainLayout->addSpacing(10);
     mainLayout->addWidget(statsLabel);
-    mainLayout->addLayout(statsLayout);
+    mainLayout->addLayout(statsLayout);mainLayout->addWidget(startup); // Add the checkbox to the layout here
     mainLayout->addSpacing(20);
     mainLayout->addWidget(generateStatsBtn);
     mainLayout->addStretch();
@@ -71,6 +73,7 @@ void SettingsDialog::loadSettings()
     QSettings settings("TNFS_Project", "TrayApp");
     mountPathEdit->setText(settings.value("mountPath", QDir::homePath()).toString());
     statsPathEdit->setText(settings.value("statsPath", QDir::currentPath()).toString());
+    startup->setChecked(settings.value("autoStart", false).toBool());
 }
 
 void SettingsDialog::saveSettings()
@@ -78,6 +81,7 @@ void SettingsDialog::saveSettings()
     QSettings settings("TNFS_Project", "TrayApp");
     settings.setValue("mountPath", mountPathEdit->text());
     settings.setValue("statsPath", statsPathEdit->text());
+    settings.setValue("autoStart", startup->isChecked());
     accept(); // Closes dialog returning QDialog::Accepted
 }
 
